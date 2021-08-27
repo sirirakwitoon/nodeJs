@@ -2,7 +2,8 @@ const TodoController = require("../../controllers/todo.controller");
 const TodoModel = require("../../model/todo.model");
 const httpMocks = require("node-mocks-http");
 const newTodo = require("../mock-data/new-todo.json");
-const allTodos = require("../mock-data/all-todos.json")
+const allTodos = require("../mock-data/all-todos.json");
+const mongoose = require("mongoose");
 
 TodoModel.create = jest.fn();
 TodoModel.find = jest.fn();
@@ -15,16 +16,42 @@ beforeEach(() => {
     res = httpMocks.createResponse();
     next = jest.fn();
 })
-describe("TodoController.getTodoBtId",()=>{
-    it("should have a getTodoById",()=>{
+describe("TodoController.getTodoById", () => {
+    it("should have a getTodoById", () => {
         expect(typeof TodoController.getTodoById).toBe("function");
     });
-    it("should call TodoModel.findById with route parameters", async()=>{
+    it("should call TodoModel.findById with route parameters", async () => {
         req.params.todoId = "6120d9e88670a0e6d6eaf915"
         await TodoController.getTodoById(req, res, next);
-       expect(TodoModel.findById).toBeCalledWith("6120d9e88670a0e6d6eaf915");
-    }
-    )
+        expect(TodoModel.findById).toBeCalledWith("6120d9e88670a0e6d6eaf915");
+    });
+    it("should return json body and response code 200", async () => {
+
+        TodoModel.findById.mockReturnValue(newTodo)
+
+        await TodoController.getTodoById(req, res, next);
+
+        console.log(res._getData())
+        expect(res.statusCode).toBe(200)
+        expect(res._isEndCalled()).toBeTruthy();
+        expect(res._getJSONData()).toStrictEqual(newTodo)
+    })
+
+    it("should handle errors in getTodoById", async () => {
+        const errorMessage = { message: "Error get by Id" };
+        const rejectedPromise = Promise.reject(errorMessage);
+        TodoModel.findById.mockReturnValue(rejectedPromise);
+        await TodoController.getTodoById(req, res, next);
+        expect(next).toHaveBeenCalledWith(errorMessage);
+    })
+
+    it("should return 404 when item doesn't exist", async () => {
+        TodoModel.findById.mockReturnValue(null);
+        await TodoController.getTodoById(req, res, next);
+        expect(res.statusCode).toBe(404);
+        expect(res._isEndCalled()).toBeTruthy();
+    })
+
 })
 
 describe("TodoController.getTodo", () => {
@@ -35,20 +62,20 @@ describe("TodoController.getTodo", () => {
         await TodoController.getTodos(req, res, next)
         expect(TodoModel.find).toHaveBeenCalledWith({});
     });
-    it("should return response with status 200 and all todos",async ()=>{
+    it("should return response with status 200 and all todos", async () => {
         TodoModel.find.mockReturnValue(allTodos)
         await TodoController.getTodos(req, res, next)
         expect(res.statusCode).toBe(200)
         expect(res._isEndCalled()).toBeTruthy();
         expect(res._getJSONData()).toStrictEqual(allTodos);
     });
-    it("should handle errors in getTodos",async ()=>{
-        const errorMessage = { message:"Error finding"};
+    it("should handle errors in getTodos", async () => {
+        const errorMessage = { message: "Error finding" };
         const rejectedPromise = Promise.reject(errorMessage);
         TodoModel.find.mockReturnValue(rejectedPromise);
         await TodoController.getTodos(req, res, next);
         expect(next).toHaveBeenCalledWith(errorMessage);
-     })
+    })
     TodoModel.find({})
 })
 
@@ -79,8 +106,8 @@ describe("TodoController.createTodo", () => {
         expect(res._getJSONData()).toStrictEqual(newTodo);
     });
 
-    it("should handle errors", async()=>{
-        const errorMessage = {message: "Done property missing"};
+    it("should handle errors", async () => {
+        const errorMessage = { message: "Done property missing" };
         const rejectedPromise = Promise.reject(errorMessage);
         TodoModel.create.mockReturnValue(rejectedPromise);
         await TodoController.createTodo(req, res, next);
@@ -95,4 +122,3 @@ describe("TodoController.createTodo", () => {
         expect(next).toBeCalledWith(errorMessage);
     });
 });
-
